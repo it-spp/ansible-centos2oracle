@@ -1,0 +1,32 @@
+---
+
+- name: Migrate RHEL 6/7/8 to Oracle Linux 6/7/8 and install Oracle Unbreakable Enterprise Kernel
+
+  hosts: all
+  any_errors_fatal: true
+  remote_user: test
+  become: yes
+
+  vars:
+    mountpoints: []
+
+  tasks:
+
+  - name: Check free space on the mountpoints
+    set_fact:
+      mountpoints: "{{ mountpoints + [{'host':ansible_host,'dev':item.device,'mount':item.mount,'free':(((item.size_available/1024)/1024))|round(2,'common'),'total':(((item.size_total/1024)/1024))|round(2,'common')}] }}"
+    loop: "{{ ansible_mounts | list }}"
+    failed_when:
+      ( item.mount == "/" and item.size_available/1024/1024 < 1024 ) or
+      ( item.mount == "/boot" and item.size_available/1024/1024 < 60 )
+
+  - name: Download a script
+    get_url:
+      url: https://raw.githubusercontent.com/oracle/centos2ol/main/centos2ol.sh
+      dest: /home/test/centos2ol.sh
+      mode: '0740'
+
+  - name: Run the script
+    ansible.builtin.shell: /home/test/centos2ol.sh
+    when: ansible_distribution == "CentOS"
+
